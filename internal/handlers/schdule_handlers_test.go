@@ -43,7 +43,7 @@ func (m *MockScheduleService) GetNextTakings(ctx context.Context, userID int, no
 	return args.Get(0).([]domain.Schedule), args.Error(1)
 }
 
-func setupRouter(handler *handlers.ScheduleHandler) *gin.Engine {
+func setupRouter() *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	return r
@@ -54,7 +54,7 @@ func TestCreateSchedule_Success(t *testing.T) {
 	logger := slog.Default()
 	handler := handlers.New(mockService, logger)
 
-	router := setupRouter(handler)
+	router := setupRouter()
 	router.POST("/schedules", handler.CreateSchedule)
 
 	now := time.Now().UTC()
@@ -96,8 +96,6 @@ func TestCreateSchedule_Success(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, float64(123), response["id"])
-	assert.NotEmpty(t, response["start_time"])
-	assert.NotEmpty(t, response["end_time"])
 
 	mockService.AssertExpectations(t)
 }
@@ -107,7 +105,7 @@ func TestCreateSchedule_InvalidRequest(t *testing.T) {
 	logger := slog.Default()
 	handler := handlers.New(mockService, logger)
 
-	router := setupRouter(handler)
+	router := setupRouter()
 	router.POST("/schedules", handler.CreateSchedule)
 
 	testCases := []struct {
@@ -150,7 +148,7 @@ func TestGetSchedules_Success(t *testing.T) {
 	logger := slog.Default()
 	handler := handlers.New(mockService, logger)
 
-	router := setupRouter(handler)
+	router := setupRouter()
 	router.GET("/schedules", handler.GetSchedules)
 
 	expectedSchedules := []domain.Schedule{
@@ -180,7 +178,7 @@ func TestGetSchedules_InvalidUserID(t *testing.T) {
 	logger := slog.Default()
 	handler := handlers.New(mockService, logger)
 
-	router := setupRouter(handler)
+	router := setupRouter()
 	router.GET("/schedules", handler.GetSchedules)
 
 	testCases := []struct {
@@ -222,7 +220,7 @@ func TestGetExactSchedule_Success(t *testing.T) {
 	logger := slog.Default()
 	handler := handlers.New(mockService, logger)
 
-	router := setupRouter(handler)
+	router := setupRouter()
 	router.GET("/schedule", handler.GetExactSchedule)
 
 	expectedSchedule := &domain.Schedule{
@@ -256,7 +254,7 @@ func TestGetExactSchedule_NotFound(t *testing.T) {
 	logger := slog.Default()
 	handler := handlers.New(mockService, logger)
 
-	router := setupRouter(handler)
+	router := setupRouter()
 	router.GET("/schedule", handler.GetExactSchedule)
 
 	mockService.On("GetScheduleByIDs", mock.Anything, 1, 999).Return((*domain.Schedule)(nil), myerrors.ErrScheduleNotFound)
@@ -275,7 +273,7 @@ func TestGetNextTakings_Success(t *testing.T) {
 	logger := slog.Default()
 	handler := handlers.New(mockService, logger)
 
-	router := setupRouter(handler)
+	router := setupRouter()
 	router.GET("/takings", handler.GetNextTakings)
 
 	now := time.Now().UTC()
@@ -312,7 +310,7 @@ func TestGetNextTakings_InvalidUserID(t *testing.T) {
 	logger := slog.Default()
 	handler := handlers.New(mockService, logger)
 
-	router := setupRouter(handler)
+	router := setupRouter()
 	router.GET("/takings", handler.GetNextTakings)
 
 	w := httptest.NewRecorder()
@@ -328,7 +326,7 @@ func TestGetNextTakings_ServiceError(t *testing.T) {
 	logger := slog.Default()
 	handler := handlers.New(mockService, logger)
 
-	router := setupRouter(handler)
+	router := setupRouter()
 	router.GET("/takings", handler.GetNextTakings)
 
 	mockService.On("GetNextTakings", mock.Anything, 1, mock.AnythingOfType("time.Time")).

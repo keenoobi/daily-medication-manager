@@ -22,7 +22,7 @@ RESTful API для управления расписанием приёма ле
    ```bash
    docker compose up --build
    ```
-
+---
 ### Структура контейнеров
 1. **postgres**: Контейнер с PostgreSQL 14
    - Порт: 5432
@@ -34,7 +34,20 @@ RESTful API для управления расписанием приёма ле
    - Автоматически применяет миграции при запуске
    - Переменные окружения настраиваются через `.env`
 
----
+
+## Тестирование
+Запуск тестов:
+```go
+go test ./...
+```
+
+Запуск покрытия:
+```go
+go test ./... -coverprofile=coverage.out  
+go tool cover -html=coverage.out -o coverage.html
+```
+Затем можно открыть файл `coverage.html`
+
 
 ## Конфигурация
 
@@ -61,6 +74,7 @@ LOG_LEVEL=info
 | SERVER_PORT              | 8080             | Порт для HTTP-сервера             |
 | NEXT_TAKINGS_PERIOD      | 1h               | Период для поиска ближайших приёмов |
 | LOG_LEVEL                | info             | Уровень логирования (debug/info/warn/error) |
+| GIN_MODE                 | release          | Переключение gin на уровень релиза |
 
 ---
 
@@ -99,11 +113,11 @@ curl "http://localhost:8080/next_takings?user_id=123"
 ### Команды Docker Compose
 | Команда                          | Описание                              |
 |----------------------------------|---------------------------------------|
-| `docker-compose up --build`      | Сборка и запуск в foreground         |
-| `docker-compose up -d`           | Запуск в фоновом режиме              |
-| `docker-compose down`            | Остановка и удаление контейнеров     |
-| `docker-compose logs -f app`     | Просмотр логов приложения            |
-| `docker-compose exec postgres psql -U user db` | Доступ к PostgreSQL |
+| `docker compose up --build`      | Сборка и запуск в foreground         |
+| `docker compose up -d`           | Запуск в фоновом режиме              |
+| `docker compose down`            | Остановка и удаление контейнеров     |
+| `docker compose logs -f app`     | Просмотр логов приложения            |
+| `docker compose exec postgres psql -U postgres postgres` | Доступ к PostgreSQL |
 
 ---
 
@@ -117,7 +131,7 @@ curl "http://localhost:8080/next_takings?user_id=123"
 - Данные PostgreSQL сохраняются в Docker volume `postgres_data`
 - Для сброса данных:
   ```bash
-  docker-compose down -v
+  docker compose down -v
   ```
 
 ## Технологический стек

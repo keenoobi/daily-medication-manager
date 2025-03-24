@@ -2,7 +2,6 @@ package myerrors
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -17,11 +16,9 @@ var (
 	ErrScheduleNotFound  = errors.New("schedule not found")
 	ErrForbidden         = errors.New("schedule does not belong to the user")
 	ErrInvalidRequest    = errors.New("invalid data in request")
+	ErrInvalidFrequency  = errors.New("invalid frequency format")
+	ErrInvalidDuration   = errors.New("invalid duration format")
 )
-
-func Wrap(err error, context string) error {
-	return fmt.Errorf("%s: %w", context, err)
-}
 
 func HandleError(c *gin.Context, err error) {
 	switch {
@@ -30,6 +27,8 @@ func HandleError(c *gin.Context, err error) {
 		errors.Is(err, ErrInvalidMedication),
 		errors.Is(err, ErrInvalidTimeRange),
 		errors.Is(err, ErrInvalidRequest),
+		errors.Is(err, ErrInvalidFrequency),
+		errors.Is(err, ErrInvalidDuration),
 		errors.Is(err, ErrInvalidTimeWindow):
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 	case errors.Is(err, ErrScheduleNotFound):

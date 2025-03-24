@@ -9,14 +9,20 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
-type ScheduleRepository struct {
-	db *pgxpool.Pool
+type DB interface {
+	QueryRow(ctx context.Context, sql string, args ...interface{}) pgx.Row
+	Query(ctx context.Context, sql string, args ...interface{}) (pgx.Rows, error)
+	Exec(ctx context.Context, sql string, args ...interface{}) (pgconn.CommandTag, error)
 }
 
-func New(db *pgxpool.Pool) *ScheduleRepository {
+type ScheduleRepository struct {
+	db DB
+}
+
+func New(db DB) *ScheduleRepository {
 	return &ScheduleRepository{db: db}
 }
 
@@ -75,9 +81,9 @@ func (r *ScheduleRepository) GetByUserID(ctx context.Context, userID int) ([]dom
 	rows, err := r.db.Query(ctx, `
         SELECT id, user_id, medication, frequency, duration, start_time, end_time
         FROM schedules
-        WHERE user_id = $1`, userID)
+        WHERE user_id = $1 AND (end_time > NOW() OR duration = 0)`, userID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch schedules: %w", err) // TODO: Сделать обработку ошибок получше
+		return nil, fmt.Errorf("failed to fetch schedules: %w", err)
 	}
 	defer rows.Close()
 
@@ -98,23 +104,4 @@ func (r *ScheduleRepository) GetByUserID(ctx context.Context, userID int) ([]dom
 	}
 
 	return schedules, nil
-}
-
-func (r *ScheduleRepository) Update(ctx context.Context, schedule *domain.Schedule) error {
-	_, err := r.db.Exec(ctx, `
-        UPDATE schedules
-        SET user_id = $1, medication = $2, start_time = $3, end_time = $4, frequency = $5
-        WHERE id = $6`,
-		schedule.UserID, schedule.Medication, schedule.StartTime, schedule.EndTime, schedule.Frequency, schedule.ID,
-	)
-	return err
-}
-
-func (r *ScheduleRepository) Delete(ctx context.Context, id int) error {
-	_, err := r.db.Exec(ctx, `
-        DELETE FROM schedules
-        WHERE id = $1`,
-		id,
-	)
-	return err
 }

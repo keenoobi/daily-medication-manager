@@ -31,6 +31,7 @@ type App struct {
 }
 
 func New(cfg *config.Config, logger *slog.Logger) (*App, error) {
+	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.Use(sloggin.New(logger))
 	router.Use(gin.Recovery())

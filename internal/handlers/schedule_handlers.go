@@ -1,13 +1,12 @@
 package handlers
 
 import (
-	"fmt"
+	"context"
 	"log"
 	"log/slog"
 	"medication-scheduler/internal/domain"
 	myerrors "medication-scheduler/internal/errors"
 
-	"medication-scheduler/internal/service"
 	"net/http"
 	"strconv"
 	"time"
@@ -15,12 +14,19 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type ScheduleService interface {
+	CreateSchedule(ctx context.Context, schedule *domain.Schedule) error
+	GetSchedulesByUserID(ctx context.Context, userID int) ([]domain.Schedule, error)
+	GetScheduleByIDs(ctx context.Context, userID, scheduleID int) (*domain.Schedule, error)
+	GetNextTakings(ctx context.Context, userID int, now time.Time) ([]domain.Schedule, error)
+}
+
 type ScheduleHandler struct {
-	service *service.ScheduleService
+	service ScheduleService
 	logger  *slog.Logger
 }
 
-func New(service *service.ScheduleService, logger *slog.Logger) *ScheduleHandler {
+func New(service ScheduleService, logger *slog.Logger) *ScheduleHandler {
 	return &ScheduleHandler{service: service, logger: logger}
 }
 
@@ -38,6 +44,11 @@ type ScheduleResponse struct {
 	Message     string `json:"message,omitempty"`
 }
 
+type TakingsResponse struct {
+	Medication string      `json:"medication"`
+	Takings    []time.Time `json:"takings"`
+}
+
 func (h *ScheduleHandler) CreateSchedule(c *gin.Context) {
 	var req ScheduleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -46,16 +57,15 @@ func (h *ScheduleHandler) CreateSchedule(c *gin.Context) {
 		return
 	}
 
-	// Преобразование строк в time.Duration
 	freq, err := time.ParseDuration(req.Frequency)
 	if err != nil {
-		myerrors.HandleError(c, fmt.Errorf("invalid frequency format: %w", err))
+		myerrors.HandleError(c, myerrors.ErrInvalidFrequency)
 		return
 	}
 
 	dur, err := time.ParseDuration(req.Duration)
 	if err != nil {
-		myerrors.HandleError(c, fmt.Errorf("invalid duration format: %w", err))
+		myerrors.HandleError(c, myerrors.ErrInvalidDuration)
 		return
 	}
 
@@ -71,15 +81,10 @@ func (h *ScheduleHandler) CreateSchedule(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
-		"id":         schedule.ID,
-		"start_time": schedule.StartTime.Format(time.RFC3339),
-		"end_time":   schedule.EndTime.Format(time.RFC3339),
-	})
+	c.JSON(http.StatusCreated, gin.H{"id": schedule.ID})
 }
 
 func (h *ScheduleHandler) GetSchedules(c *gin.Context) {
-	// Получаем и валидируем user_id
 	userID, err := strconv.Atoi(c.Query("user_id"))
 	if err != nil || userID <= 0 {
 		h.logger.Error("Invalid user_id", "userID", c.Query("user_id"), "error", err)
@@ -89,7 +94,6 @@ func (h *ScheduleHandler) GetSchedules(c *gin.Context) {
 
 	h.logger.Info("Fetching schedules for user", "userID", userID)
 
-	// Получаем расписания из сервиса
 	schedules, err := h.service.GetSchedulesByUserID(c.Request.Context(), userID)
 	if err != nil {
 		h.logger.Error("Failed to fetch schedules", "userID", userID, "error", err)
@@ -97,7 +101,6 @@ func (h *ScheduleHandler) GetSchedules(c *gin.Context) {
 		return
 	}
 
-	// Если расписаний нет, возвращаем пустой массив
 	if len(schedules) == 0 {
 		h.logger.Info("No schedules found for user", "userID", userID)
 		c.JSON(http.StatusOK, ScheduleResponse{
@@ -106,8 +109,7 @@ func (h *ScheduleHandler) GetSchedules(c *gin.Context) {
 		return
 	}
 
-	// Формируем список идентификаторов расписаний
-	scheduleIDs := make([]int, 0, len(schedules)) // Инициализируем с нулевой длиной и вместимостью len(schedules)
+	scheduleIDs := make([]int, 0, len(schedules))
 	for _, schedule := range schedules {
 		scheduleIDs = append(scheduleIDs, schedule.ID)
 	}
@@ -149,11 +151,20 @@ func (h *ScheduleHandler) GetNextTakings(c *gin.Context) {
 		return
 	}
 
-	schedules, err := h.service.GetNextTakings(c.Request.Context(), userID)
+	now := time.Now().UTC()
+	schedules, err := h.service.GetNextTakings(c.Request.Context(), userID, now)
 	if err != nil {
 		myerrors.HandleError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, schedules)
+	response := make([]TakingsResponse, 0, len(schedules))
+	for _, s := range schedules {
+		response = append(response, TakingsResponse{
+			Medication: s.Medication,
+			Takings:    s.Takings,
+		})
+	}
+
+	c.JSON(http.StatusOK, response)
 }

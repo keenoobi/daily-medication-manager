@@ -5,8 +5,6 @@ import (
 	"medication-scheduler/internal/database"
 	"os"
 	"time"
-
-	"github.com/joho/godotenv"
 )
 
 type Config struct {
@@ -17,9 +15,6 @@ type Config struct {
 }
 
 func LoadConfig() *Config {
-	if err := godotenv.Load(); err != nil {
-		log.Fatal("Error loading .env file") // TODO: Заменить на что-то более вменяемое
-	}
 	return &Config{
 		DBConfig: database.Config{
 			DBHost:     getEnv("DB_HOST", "localhost"),
@@ -30,7 +25,7 @@ func LoadConfig() *Config {
 		},
 		ServerPort:        getEnv("SERVER_PORT", "8080"),
 		LogLevel:          getEnv("LOG_LEVEL", "info"),
-		NextTakingsPeriod: parseDuration(getEnv("NEXT_TAKINGS_PERIOD", "1h")),
+		NextTakingsPeriod: ParseDuration(getEnv("NEXT_TAKINGS_PERIOD", "1h")),
 	}
 }
 
@@ -41,10 +36,10 @@ func getEnv(key, defaultValue string) string {
 	return defaultValue
 }
 
-func parseDuration(s string) time.Duration {
+func ParseDuration(s string) time.Duration {
 	d, err := time.ParseDuration(s)
 	if err != nil {
-		log.Fatalf("invalid duration format: %v", err)
+		log.Panicf("invalid duration format: %v", err)
 	}
 	return d
 }

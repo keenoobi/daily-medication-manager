@@ -11,8 +11,6 @@ type ScheduleRepository interface {
 	Create(ctx context.Context, schedule *domain.Schedule) error
 	GetByIDs(ctx context.Context, userID, scheduleID int) (*domain.Schedule, error)
 	GetByUserID(ctx context.Context, userID int) ([]domain.Schedule, error)
-	Update(ctx context.Context, schedule *domain.Schedule) error
-	Delete(ctx context.Context, id int) error
 }
 
 type ScheduleService struct {
@@ -55,39 +53,24 @@ func (s *ScheduleService) GetSchedulesByUserID(ctx context.Context, userID int) 
 	return s.repo.GetByUserID(ctx, userID)
 }
 
-func (s *ScheduleService) GetNextTakings(ctx context.Context, userID int) ([]domain.Schedule, error) {
+func (s *ScheduleService) GetNextTakings(ctx context.Context, userID int, now time.Time) ([]domain.Schedule, error) {
 	schedules, err := s.repo.GetByUserID(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 
-	now := time.Now().UTC()
-	result := make([]domain.Schedule, 0)
+	periodEnd := now.Add(s.period)
+	fmt.Println(now, periodEnd)
+	result := make([]domain.Schedule, 0, len(schedules))
 
-	for _, schedule := range schedules {
-		if !schedule.IsActive(now) {
-			continue
-		}
-
-		dayStart := time.Date(now.Year(), now.Month(), now.Day(), 8, 0, 0, 0, now.Location())
-		dayEnd := dayStart.Add(14 * time.Hour)
-		takings := schedule.CalculateTakings(now)
-
-		for _, t := range takings {
-			rounded := domain.RoundToNearest15(t)
-
-			// Проверка временного окна
-			if rounded.Before(dayStart) || rounded.After(dayEnd) {
-				continue
-			}
-
-			if rounded.After(now) && rounded.Before(now.Add(s.period)) {
-				schedule.Takings = []time.Time{rounded}
-				result = append(result, schedule)
-				break
-			}
+	for i, schedule := range schedules {
+		if taking, found := schedule.FindNextTaking(now, periodEnd); found {
+			result = append(result, schedule)
+			result[i].Takings = append(result[i].Takings, taking)
 		}
 	}
+
+	fmt.Println(result)
 
 	return result, nil
 }

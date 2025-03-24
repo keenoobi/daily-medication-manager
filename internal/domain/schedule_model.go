@@ -77,3 +77,31 @@ func RoundToNearest15(t time.Time) time.Time {
 	}
 	return t.Add(time.Duration(RoundTo-remainder) * time.Minute).Truncate(RoundTo * time.Minute)
 }
+
+func (s *Schedule) FindNextTaking(now time.Time, periodEnd time.Time) (time.Time, bool) {
+	if !s.IsActive(now) {
+		return time.Time{}, false
+	}
+
+	dayStart := time.Date(now.Year(), now.Month(), now.Day(), 8, 0, 0, 0, now.Location())
+	dayEnd := dayStart.Add(AvailableTime * time.Hour)
+
+	if now.After(dayEnd) || now.Before(dayStart) {
+		return time.Time{}, false
+	}
+
+	baseTime := dayStart
+
+	elapsed := now.Sub(baseTime)
+	intervalsPassed := elapsed / s.Frequency
+
+	nextInterval := baseTime.Add((intervalsPassed + 1) * s.Frequency)
+
+	nextTime := RoundToNearest15(nextInterval)
+
+	if nextTime.Before(dayStart) || nextTime.After(dayEnd) || nextTime.After(periodEnd) {
+		return time.Time{}, false
+	}
+
+	return nextTime, true
+}

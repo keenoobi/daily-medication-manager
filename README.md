@@ -20,7 +20,7 @@ RESTful API для управления расписанием приёма ле
 
 2. Запустите сервисы:
    ```bash
-   docker-compose up --build
+   docker compose up --build
    ```
 
 3. Система будет доступна на:
